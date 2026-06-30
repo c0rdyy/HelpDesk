@@ -6,9 +6,12 @@ requires-python = ">=3.13"
 dependencies = [
     "aiosqlite>=0.22.1",
     "alembic>=1.18.5",
+    "bcrypt==4.0.1",
     "fastapi[all]>=0.138.1",
     "greenlet>=3.5.3",
+    "passlib[bcrypt]>=1.7.4",
     "python-dotenv>=1.2.2",
+    "python-jose[cryptography]>=3.5.0",
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.49.0",
 ]
@@ -19,6 +22,8 @@ dev = [
     "pre-commit>=4.6.0",
     "pytest>=9.1.1",
     "ruff>=0.15.20",
+    "types-passlib>=1.7.7.20260211",
+    "types-python-jose>=3.5.0.20260408",
 ]
 
 [tool.ruff]

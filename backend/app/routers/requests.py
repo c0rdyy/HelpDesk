@@ -1,8 +1,10 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.core.dependencies import get_request_service
+from app.dependencies.auth_dep import get_current_admin_user
+from app.dependencies.requests_dep import get_request_service
+from app.models.user import User
 from app.schemas.request import (
     SRequestCreate,
     SRequestFilter,
@@ -67,10 +69,10 @@ async def update_request_status(
 async def delete_request(
     request_id: int,
     service: Annotated[RequestService, Depends(get_request_service)],
-    is_admin: Annotated[bool, Query()] = False,
+    current_user: Annotated[User, Depends(get_current_admin_user)],
 ) -> Response:
     try:
-        await service.delete(request_id, is_admin=is_admin)
+        await service.delete(request_id, is_admin=current_user.is_admin)
     except OnlyAdminCanDeleteRequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

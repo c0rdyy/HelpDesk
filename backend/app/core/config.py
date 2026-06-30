@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     JWT_ACCESS_TTL_MINUTES: int = 60
 
     # --- Admin seed ---
-    ADMIN_LOGIN: str | None = None
-    ADMIN_PASSWORD: str | None = None
+    ADMIN_LOGIN: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True
