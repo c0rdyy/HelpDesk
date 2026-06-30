@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.enums import RequestPriority, RequestStatus
 
@@ -26,6 +26,8 @@ class SRequestInfo(RequestBase):
     created_at: datetime = Field(description="Request creation time")
     updated_at: datetime = Field(description="Request modification time")
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class SRequestStatusUpdate(BaseModel):
     status: RequestStatus = Field(description="New status of the request")
@@ -36,6 +38,8 @@ class SRequestList(BaseModel):
     total: int = Field(ge=0, description="Total number of requests")
     page: int = Field(ge=1, description="Current page")
     page_size: int = Field(ge=1, description="Page size")
+
+    model_config = ConfigDict(from_attributes=True)
 
     @computed_field
     def pages(self) -> int:

@@ -1,0 +1,90 @@
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+
+from app.core.dependencies import get_request_service
+from app.schemas.request import (
+    SRequestCreate,
+    SRequestFilter,
+    SRequestInfo,
+    SRequestList,
+    SRequestStatusUpdate,
+)
+from app.services.request_exceptions import (
+    DoneRequestCannotBeDeletedError,
+    DoneRequestCannotBeEditedError,
+    OnlyAdminCanDeleteRequestError,
+    RequestNotFoundError,
+)
+from app.services.request_service import RequestService
+
+router = APIRouter(prefix="/requests", tags=["Requests"])
+
+
+@router.get("", response_model=SRequestList)
+async def get_requests(
+    filters: Annotated[SRequestFilter, Depends()],
+    service: Annotated[RequestService, Depends(get_request_service)],
+) -> SRequestList:
+    """
+    Retrieve requests
+    """
+    return await service.get_list(filters)
+
+
+@router.post("", response_model=SRequestInfo, status_code=status.HTTP_201_CREATED)
+async def create_request(
+    data: SRequestCreate, service: Annotated[RequestService, Depends(get_request_service)]
+) -> Any:
+    """
+    Create the new request
+    """
+    return await service.create(data)
+
+
+@router.patch("/{request_id}/status", response_model=SRequestInfo)
+async def update_request_status(
+    request_id: int,
+    data: SRequestStatusUpdate,
+    service: Annotated[RequestService, Depends(get_request_service)],
+) -> Any:
+    """
+    Updates the request status
+    """
+    try:
+        return await service.update_status(request_id, data.status)
+    except RequestNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Request not found"
+        ) from exc
+    except DoneRequestCannotBeEditedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Done request cannot be edited"
+        ) from exc
+
+
+@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_request(
+    request_id: int,
+    service: Annotated[RequestService, Depends(get_request_service)],
+    is_admin: Annotated[bool, Query()] = False,
+) -> Response:
+    try:
+        await service.delete(request_id, is_admin=is_admin)
+    except OnlyAdminCanDeleteRequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can delete requests",
+        ) from exc
+    except RequestNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Request not found",
+        ) from exc
+    except DoneRequestCannotBeDeletedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Done request cannot be deleted",
+        ) from exc
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
