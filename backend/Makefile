@@ -1,7 +1,7 @@
 .PHONY: run typecheck lint lint-check format test
 
 run:
-	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 typecheck:
 	uv run mypy .
 lint:

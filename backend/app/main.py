@@ -9,6 +9,7 @@ from app.core.database import async_session_maker
 from app.repositories.user_repository import UserRepository
 from app.routers.auth import router as auth_router
 from app.routers.requests import router as request_router
+from app.routers.users import router as user_router
 from app.services.user_service import UserService
 
 
@@ -37,11 +38,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(request_router)
-app.include_router(auth_router)
+app.include_router(request_router, prefix=settings.API_PREFIX)
+app.include_router(auth_router, prefix=settings.API_PREFIX)
+app.include_router(user_router, prefix=settings.API_PREFIX)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=3000, reload=True)
