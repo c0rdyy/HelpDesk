@@ -1,17 +1,17 @@
 import { isAxiosError } from '@/shared/api/http'
-import type { ApiErrorResponce } from '@/shared/api/types'
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import type { ApiErrorResponse } from '@/shared/api/types'
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 export function getApiErrorMessage(
-  error: unknown, 
+  error: unknown,
   fallback = 'Что-то пошло не так'
 ): string {
-  if (isAxiosError<ApiErrorResponce>(error)) {
+  if (isAxiosError<ApiErrorResponse>(error)) {
     const data = error.response?.data
 
     if (data && typeof data.detail === 'string') {
