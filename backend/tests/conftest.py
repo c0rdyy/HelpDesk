@@ -18,6 +18,7 @@ from app.models import Base
 from app.models.user import User
 from app.routers.auth import router as auth_router
 from app.routers.requests import router as requests_router
+from app.routers.users import router as users_router
 
 
 async def _prepare_database(
@@ -57,6 +58,7 @@ def client(tmp_path: Path) -> Generator[TestClient]:
     app = FastAPI()
     app.include_router(requests_router)
     app.include_router(auth_router)
+    app.include_router(users_router)
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as test_client:
@@ -64,3 +66,15 @@ def client(tmp_path: Path) -> Generator[TestClient]:
 
     app.dependency_overrides.clear()
     asyncio.run(engine.dispose())
+
+
+@pytest.fixture
+def admin_headers(client: TestClient) -> dict[str, str]:
+    response = client.post(
+        "/auth/login",
+        json={"username": "admin", "password": "admin"},
+    )
+
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

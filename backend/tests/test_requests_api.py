@@ -15,13 +15,14 @@ def _create_request(
     )
 
     assert response.status_code == 201
-    return response.json()
+    data: dict[str, Any] = response.json()
+    return data
 
 
 def _admin_headers(client: TestClient) -> dict[str, str]:
     response = client.post(
         "/auth/login",
-        data={"username": "admin", "password": "admin"},
+        json={"username": "admin", "password": "admin"},
     )
 
     assert response.status_code == 200
@@ -145,7 +146,7 @@ def test_done_request_cannot_be_deleted(client: TestClient) -> None:
 def test_login_rejects_invalid_password(client: TestClient) -> None:
     response = client.post(
         "/auth/login",
-        data={"username": "admin", "password": "wrong"},
+        json={"username": "admin", "password": "wrong"},
     )
 
     assert response.status_code == 401
