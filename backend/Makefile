@@ -12,3 +12,5 @@ format:
 	uv run ruff format .
 test:
 	uv run pytest
+migrate:
+	uv run alembic upgrade head

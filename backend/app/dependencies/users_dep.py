@@ -4,6 +4,8 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.dependencies.session_dep import get_session_repository
+from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
 from app.services.user_service import UserService
 
@@ -16,5 +18,6 @@ def get_user_repository(
 
 def get_user_service(
     repository: Annotated[UserRepository, Depends(get_user_repository)],
+    session_repository: Annotated[SessionRepository, Depends(get_session_repository)],
 ) -> UserService:
-    return UserService(repository)
+    return UserService(repository, session_repository)

@@ -5,10 +5,11 @@ from fastapi.security import OAuth2PasswordBearer
 
 from app.core.security import decode_access_token
 from app.dependencies.users_dep import get_user_repository
+from app.enums import UserRole
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 async def get_current_user(
@@ -29,7 +30,7 @@ async def get_current_user(
 
     user = await repository.get_by_id(user_id)
 
-    if user is None:
+    if user is None or not user.is_active:
         raise credentials_error
 
     return user
@@ -38,7 +39,7 @@ async def get_current_user(
 async def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if not current_user.is_admin:
+    if current_user.role != UserRole.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admin can perform this action",

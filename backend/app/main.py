@@ -1,31 +1,12 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.database import async_session_maker
-from app.repositories.user_repository import UserRepository
 from app.routers.auth import router as auth_router
 from app.routers.requests import router as request_router
 from app.routers.users import router as user_router
-from app.services.user_service import UserService
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    async with async_session_maker() as db_session:
-        repository = UserRepository(db_session)
-        service = UserService(repository)
-        await service.ensure_admin_exists()
-
-    yield
-
-
-app = FastAPI(
-    title="HelpDesk API", version="0.1.0", docs_url="/docs", redoc_url="/redoc", lifespan=lifespan
-)
+app = FastAPI(title="HelpDesk API", version="0.1.0", docs_url="/docs", redoc_url="/redoc")
 
 settings = get_settings()
 

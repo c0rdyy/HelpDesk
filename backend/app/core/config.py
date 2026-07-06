@@ -1,8 +1,10 @@
+import secrets
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -17,18 +19,37 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     DEBUG: bool = False
 
-    DATABASE_URL: str = "sqlite+aiosqlite:///./database.db"
-
     BACKEND_CORS_ORIGINS: Annotated[list[str] | str, BeforeValidator(parse_cors)] = []
 
-    # --- JWT ---
-    JWT_SECRET: str = "change-me"
+    JWT_SECRET: str = secrets.token_urlsafe(32)
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TTL_MINUTES: int = 60
+    JWT_ACCESS_TTL_MINUTES: int = 30
+    JWT_REFRESH_TTL_DAYS: int = 7
+    JWT_REFRESH_REMEMBER_TTL_DAYS: int = 30
 
-    # --- Admin seed ---
-    ADMIN_LOGIN: str = "admin"
-    ADMIN_PASSWORD: str = "admin"
+    REFRESH_COOKIE_NAME: str = "refresh_token"
+    REFRESH_COOKIE_SECURE: bool = False
+    REFRESH_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    REFRESH_COOKIE_PATH: str = "/api/auth"
+
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+
+    SQLALCHEMY_ECHO: bool = False
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        return URL.create(
+            drivername="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database=self.POSTGRES_DB,
+        ).render_as_string(hide_password=False)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True
