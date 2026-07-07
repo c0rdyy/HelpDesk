@@ -1,5 +1,13 @@
+export type ApiValidationIssue = {
+  loc: (string | number)[]
+  msg: string
+  type: string
+  input?: unknown
+  ctx?: Record<string, unknown>
+}
+
 export type ApiErrorResponse = {
-  detail: string
+  detail: string | ApiValidationIssue[]
 }
 
 export type ApiErrorResponce = ApiErrorResponse
@@ -7,6 +15,14 @@ export type ApiErrorResponce = ApiErrorResponse
 export type LoginRequest = {
   username: string
   password: string
+  remember_me?: boolean
+}
+
+export type RegisterRequest = {
+  username: string
+  email: string
+  password: string
+  confirm_password: string
 }
 
 export type AuthResponse = {

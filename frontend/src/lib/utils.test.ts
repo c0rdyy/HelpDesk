@@ -26,6 +26,60 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage(error)).toBe('Request not found')
   })
 
+  it('translates common auth errors from the API', () => {
+    const error = createAxiosError(401, {
+      detail: 'Invalid username or password'
+    })
+
+    expect(getApiErrorMessage(error)).toBe('Неверный логин или пароль')
+  })
+
+  it('translates username conflict errors from the API', () => {
+    const error = createAxiosError(409, {
+      detail: 'User with this username already exists'
+    })
+
+    expect(getApiErrorMessage(error)).toBe(
+      'Пользователь с таким логином уже существует'
+    )
+  })
+
+  it('returns a readable message for FastAPI validation errors', () => {
+    const error = createAxiosError(422, {
+      detail: [
+        {
+          type: 'string_too_short',
+          loc: ['body', 'username'],
+          msg: 'String should have at least 3 characters',
+          input: 'ad',
+          ctx: { min_length: 3 }
+        }
+      ]
+    })
+
+    expect(getApiErrorMessage(error)).toBe(
+      'Поле «Логин» должно быть не короче 3 символа'
+    )
+  })
+
+  it('returns a readable message for too long fields', () => {
+    const error = createAxiosError(422, {
+      detail: [
+        {
+          type: 'string_too_long',
+          loc: ['body', 'password'],
+          msg: 'String should have at most 50 characters',
+          input: 'x'.repeat(51),
+          ctx: { max_length: 50 }
+        }
+      ]
+    })
+
+    expect(getApiErrorMessage(error)).toBe(
+      'Поле «Пароль» должно быть не длиннее 50 символов'
+    )
+  })
+
   it('returns the message of a plain Error', () => {
     expect(getApiErrorMessage(new Error('Network Error'))).toBe('Network Error')
   })

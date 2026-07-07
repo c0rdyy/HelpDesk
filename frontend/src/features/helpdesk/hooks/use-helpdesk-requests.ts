@@ -46,7 +46,13 @@ interface UseHelpDeskRequestsResult {
   deleteRequest: (request: HelpDeskRequest) => Promise<void>
 }
 
-export function useHelpDeskRequests(): UseHelpDeskRequestsResult {
+interface UseHelpDeskRequestsOptions {
+  enabled?: boolean
+}
+
+export function useHelpDeskRequests({
+  enabled = true
+}: UseHelpDeskRequestsOptions = {}): UseHelpDeskRequestsResult {
   const [searchDraft, setSearchDraft] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatusState] = useState<FilterStatus>('all')
@@ -84,6 +90,10 @@ export function useHelpDeskRequests(): UseHelpDeskRequestsResult {
   }, [page, priority, search, sort, status])
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined
+    }
+
     let ignore = false
 
     async function loadRequests() {
@@ -116,11 +126,14 @@ export function useHelpDeskRequests(): UseHelpDeskRequestsResult {
     return () => {
       ignore = true
     }
-  }, [query, reloadKey])
+  }, [enabled, query, reloadKey])
 
-  const requests = requestState.data
+  const visibleRequestState: RequestListState = enabled
+    ? requestState
+    : { status: 'loading', data: null }
+  const requests = visibleRequestState.data
   const pages = requests?.pages ?? 1
-  const isLoading = requestState.status === 'loading'
+  const isLoading = visibleRequestState.status === 'loading'
 
   const reload = useCallback(() => {
     setReloadKey((value) => value + 1)
@@ -256,7 +269,7 @@ export function useHelpDeskRequests(): UseHelpDeskRequestsResult {
     page,
     setPage,
     pages,
-    requestState,
+    requestState: visibleRequestState,
     feedbackMessage,
     isLoading,
     pendingRequestId,

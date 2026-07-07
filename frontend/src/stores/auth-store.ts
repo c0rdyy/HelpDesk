@@ -2,7 +2,7 @@ import { getApiErrorMessage } from '@/lib/utils'
 import { authApi } from '@/shared/api/auth-api'
 import { getAuthToken, setAuthToken } from '@/shared/api/auth-token'
 import { setUnauthorizedHandler } from '@/shared/api/http'
-import type { LoginRequest, UserInfo } from '@/shared/api/types'
+import type { LoginRequest, RegisterRequest, UserInfo } from '@/shared/api/types'
 import { create } from 'zustand'
 
 type AuthState = {
@@ -12,7 +12,8 @@ type AuthState = {
   authError: string | null
   bootstrap: () => Promise<void>
   login: (payload: LoginRequest) => Promise<void>
-  logout: () => void
+  register: (payload: RegisterRequest) => Promise<void>
+  logout: () => Promise<void>
   clearAuthError: () => void
   fetchMe: () => Promise<void>
 }
@@ -29,6 +30,22 @@ function profileToUser(profile: {
   }
 }
 
+async function loadUserFromAccessToken(accessToken: string): Promise<UserInfo> {
+  setAuthToken(accessToken)
+
+  const profile = await authApi.me()
+
+  return profileToUser(profile)
+}
+
+async function refreshAccessToken(): Promise<string> {
+  const { access_token: accessToken } = await authApi.refresh()
+
+  setAuthToken(accessToken)
+
+  return accessToken
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   bootstraped: false,
@@ -42,15 +59,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isAuthLoading: true, authError: null })
 
     try {
-      if (!getAuthToken()) {
-        set({ user: null, bootstraped: true, isAuthLoading: false })
-        return
-      }
-
-      const profile = await authApi.me()
+      const accessToken = getAuthToken() ?? (await refreshAccessToken())
+      const user = await loadUserFromAccessToken(accessToken)
 
       set({
-        user: profileToUser(profile),
+        user,
         bootstraped: true,
         isAuthLoading: false
       })
@@ -68,10 +81,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const { access_token } = await authApi.login(payload)
+      const user = await loadUserFromAccessToken(access_token)
 
-      setAuthToken(access_token)
-      set({ isAuthLoading: false, authError: null })
+      set({
+        user,
+        bootstraped: true,
+        isAuthLoading: false,
+        authError: null
+      })
     } catch (error) {
+      setAuthToken(null)
       set({
         isAuthLoading: false,
         authError: getApiErrorMessage(error, 'Не удалось войти')
@@ -80,20 +99,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw error
     }
   },
+  register: async (payload) => {
+    set({ isAuthLoading: true, authError: null })
+
+    try {
+      const { access_token } = await authApi.register(payload)
+      const user = await loadUserFromAccessToken(access_token)
+
+      set({
+        user,
+        bootstraped: true,
+        isAuthLoading: false,
+        authError: null
+      })
+    } catch (error) {
+      setAuthToken(null)
+      set({
+        isAuthLoading: false,
+        authError: getApiErrorMessage(error, 'Не удалось зарегистрироваться')
+      })
+
+      throw error
+    }
+  },
   logout: async () => {
-    setAuthToken(null)
-    set({ user: null, authError: null })
+    try {
+      await authApi.logout()
+    } finally {
+      setAuthToken(null)
+      set({ user: null, authError: null })
+    }
   },
   clearAuthError: async () => {
     set({ authError: null })
   },
   fetchMe: async () => {
-    if (!getAuthToken()) {
-      set({ user: null })
-      return
-    }
-
     try {
+      if (!getAuthToken()) {
+        await refreshAccessToken()
+      }
+
       const profile = await authApi.me()
 
       set({

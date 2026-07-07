@@ -9,6 +9,7 @@ import { RequestListSection } from '@/features/helpdesk/components/request-list-
 import { useHelpDeskRequests } from '@/features/helpdesk/hooks/use-helpdesk-requests'
 import type {
   LoginFormState,
+  RegisterFormState,
   RequestFormState
 } from '@/features/helpdesk/types'
 import { getApiErrorMessage } from '@/lib/utils'
@@ -23,7 +24,97 @@ const initialRequestForm: RequestFormState = {
 
 const initialLoginForm: LoginFormState = {
   username: '',
-  password: ''
+  password: '',
+  remember_me: false
+}
+
+const initialRegisterForm: RegisterFormState = {
+  username: '',
+  email: '',
+  password: '',
+  confirm_password: ''
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validateUsername(username: string): string | null {
+  const trimmedUsername = username.trim()
+
+  if (!trimmedUsername) {
+    return 'Поле «Логин» нужно заполнить'
+  }
+
+  if (trimmedUsername.length < 3) {
+    return 'Поле «Логин» должно быть не короче 3 символа'
+  }
+
+  if (trimmedUsername.length > 50) {
+    return 'Поле «Логин» должно быть не длиннее 50 символов'
+  }
+
+  return null
+}
+
+function validatePassword(password: string): string | null {
+  if (!password) {
+    return 'Поле «Пароль» нужно заполнить'
+  }
+
+  if (password.length > 50) {
+    return 'Поле «Пароль» должно быть не длиннее 50 символов'
+  }
+
+  return null
+}
+
+function validateLoginForm(form: LoginFormState): string | null {
+  return validateUsername(form.username) ?? validatePassword(form.password)
+}
+
+function validateRegisterForm(form: RegisterFormState): string | null {
+  const usernameError = validateUsername(form.username)
+
+  if (usernameError) {
+    return usernameError
+  }
+
+  const email = form.email.trim()
+
+  if (!email) {
+    return 'Поле «Email» нужно заполнить'
+  }
+
+  if (email.length < 3) {
+    return 'Поле «Email» должно быть не короче 3 символа'
+  }
+
+  if (email.length > 50) {
+    return 'Поле «Email» должно быть не длиннее 50 символов'
+  }
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return 'Поле «Email» должно быть корректным email-адресом'
+  }
+
+  const passwordError = validatePassword(form.password)
+
+  if (passwordError) {
+    return passwordError
+  }
+
+  if (!form.confirm_password) {
+    return 'Поле «Повторите пароль» нужно заполнить'
+  }
+
+  if (form.confirm_password.length > 50) {
+    return 'Поле «Повторите пароль» должно быть не длиннее 50 символов'
+  }
+
+  if (form.password !== form.confirm_password) {
+    return 'Пароли не совпадают'
+  }
+
+  return null
 }
 
 export function HelpDeskPage() {
@@ -31,8 +122,8 @@ export function HelpDeskPage() {
   const bootstrapped = useAuthStore((state) => state.bootstraped)
   const user = useAuthStore((state) => state.user)
   const login = useAuthStore((state) => state.login)
+  const register = useAuthStore((state) => state.register)
   const logout = useAuthStore((state) => state.logout)
-  const fetchMe = useAuthStore((state) => state.fetchMe)
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading)
   const authError = useAuthStore((state) => state.authError)
   const clearAuthError = useAuthStore((state) => state.clearAuthError)
@@ -44,8 +135,14 @@ export function HelpDeskPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [requestForm, setRequestForm] =
     useState<RequestFormState>(initialRequestForm)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [loginForm, setLoginForm] = useState<LoginFormState>(initialLoginForm)
-  const requests = useHelpDeskRequests()
+  const [registerForm, setRegisterForm] =
+    useState<RegisterFormState>(initialRegisterForm)
+  const [authFormError, setAuthFormError] = useState<string | null>(null)
+  const authModalOpen = isAuthOpen || !user
+  const canCloseAuth = Boolean(user)
+  const requests = useHelpDeskRequests({ enabled: Boolean(user) })
 
   useEffect(() => {
     void bootstrap()
@@ -58,35 +155,38 @@ export function HelpDeskPage() {
   }, [isCreateOpen])
 
   useEffect(() => {
-    if (isAuthOpen) {
+    if (authModalOpen) {
       window.setTimeout(() => loginInputRef.current?.focus(), 0)
     }
-  }, [isAuthOpen])
+  }, [authModalOpen])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setCreateOpen(false)
-        setAuthOpen(false)
+
+        if (canCloseAuth) {
+          setAuthOpen(false)
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
 
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [canCloseAuth])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
 
-    if (isCreateOpen || isAuthOpen) {
+    if (isCreateOpen || authModalOpen) {
       document.body.style.overflow = 'hidden'
     }
 
     return () => {
       document.body.style.overflow = previousOverflow
     }
-  }, [isAuthOpen, isCreateOpen])
+  }, [authModalOpen, isCreateOpen])
 
   const isAdmin = Boolean(user?.is_admin)
   const canCreate =
@@ -122,10 +222,20 @@ export function HelpDeskPage() {
   async function handleLoginSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     clearAuthError()
+    setAuthFormError(null)
+
+    const validationError = validateLoginForm(loginForm)
+
+    if (validationError) {
+      setAuthFormError(validationError)
+      return
+    }
 
     try {
-      await login(loginForm)
-      await fetchMe()
+      await login({
+        ...loginForm,
+        username: loginForm.username.trim()
+      })
       setLoginForm(initialLoginForm)
       setAuthOpen(false)
     } catch {
@@ -133,9 +243,41 @@ export function HelpDeskPage() {
     }
   }
 
-  function handleLogout() {
-    logout()
-    setAuthOpen(false)
+  async function handleRegisterSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clearAuthError()
+    setAuthFormError(null)
+
+    const validationError = validateRegisterForm(registerForm)
+
+    if (validationError) {
+      setAuthFormError(validationError)
+      return
+    }
+
+    try {
+      await register({
+        ...registerForm,
+        email: registerForm.email.trim(),
+        username: registerForm.username.trim()
+      })
+      setRegisterForm(initialRegisterForm)
+      setAuthMode('login')
+      setAuthOpen(false)
+    } catch {
+      // Error text is already stored in auth state.
+    }
+  }
+
+  async function handleLogout() {
+    await logout()
+    setAuthOpen(true)
+  }
+
+  function handleCloseAuth() {
+    if (canCloseAuth) {
+      setAuthOpen(false)
+    }
   }
 
   async function handleDelete(request: HelpDeskRequest) {
@@ -201,16 +343,32 @@ export function HelpDeskPage() {
       />
 
       <AuthModal
-        authError={authError}
+        authError={authFormError ?? authError}
+        authMode={authMode}
         bootstrapped={bootstrapped}
+        canClose={canCloseAuth}
         inputRef={loginInputRef}
         isAuthLoading={isAuthLoading}
         loginForm={loginForm}
-        onClose={() => setAuthOpen(false)}
-        onFormChange={setLoginForm}
+        registerForm={registerForm}
+        onClose={handleCloseAuth}
+        onLoginFormChange={(form) => {
+          setAuthFormError(null)
+          setLoginForm(form)
+        }}
         onLogout={handleLogout}
-        onSubmit={handleLoginSubmit}
-        open={isAuthOpen}
+        onModeChange={(mode) => {
+          clearAuthError()
+          setAuthFormError(null)
+          setAuthMode(mode)
+        }}
+        onRegisterFormChange={(form) => {
+          setAuthFormError(null)
+          setRegisterForm(form)
+        }}
+        onLoginSubmit={handleLoginSubmit}
+        onRegisterSubmit={handleRegisterSubmit}
+        open={authModalOpen}
         user={user}
       />
     </div>

@@ -21,6 +21,14 @@ export type RequestFormState = {
 export type LoginFormState = {
   username: string
   password: string
+  remember_me: boolean
+}
+
+export type RegisterFormState = {
+  username: string
+  email: string
+  password: string
+  confirm_password: string
 }
 
 export type RequestListState =

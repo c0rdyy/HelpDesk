@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/shared/api/auth-api', () => ({
   authApi: {
+    logout: vi.fn(),
     login: vi.fn(),
-    me: vi.fn()
+    me: vi.fn(),
+    register: vi.fn(),
+    refresh: vi.fn()
   }
 }))
 
@@ -28,6 +31,9 @@ import { useAuthStore } from './auth-store'
 
 const mockedLogin = vi.mocked(authApi.login)
 const mockedMe = vi.mocked(authApi.me)
+const mockedRegister = vi.mocked(authApi.register)
+const mockedRefresh = vi.mocked(authApi.refresh)
+const mockedLogout = vi.mocked(authApi.logout)
 const initialState = useAuthStore.getState()
 
 beforeEach(() => {
@@ -35,20 +41,29 @@ beforeEach(() => {
   setAuthToken(null)
   mockedLogin.mockReset()
   mockedMe.mockReset()
+  mockedRegister.mockReset()
+  mockedRefresh.mockReset()
+  mockedLogout.mockReset()
 })
 
 describe('useAuthStore.login', () => {
-  it('stores the access token and clears the error on success', async () => {
+  it('stores the access token, loads the user and clears the error on success', async () => {
     mockedLogin.mockResolvedValue({
       access_token: 'token-123',
       token_type: 'bearer'
     })
+    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
 
     await useAuthStore
       .getState()
-      .login({ username: 'admin', password: 'admin' })
+      .login({ username: 'admin', password: 'admin', remember_me: true })
 
     expect(getAuthToken()).toBe('token-123')
+    expect(useAuthStore.getState().user).toEqual({
+      id: 1,
+      username: 'admin',
+      is_admin: true
+    })
     expect(useAuthStore.getState().isAuthLoading).toBe(false)
     expect(useAuthStore.getState().authError).toBeNull()
   })
@@ -63,6 +78,49 @@ describe('useAuthStore.login', () => {
     expect(getAuthToken()).toBeNull()
     expect(useAuthStore.getState().isAuthLoading).toBe(false)
     expect(useAuthStore.getState().authError).toBe('Invalid credentials')
+  })
+})
+
+describe('useAuthStore.register', () => {
+  it('stores the access token, loads the user and clears the error on success', async () => {
+    mockedRegister.mockResolvedValue({
+      access_token: 'token-123',
+      token_type: 'bearer'
+    })
+    mockedMe.mockResolvedValue({ id: 1, username: 'new-user', is_admin: false })
+
+    await useAuthStore.getState().register({
+      username: 'new-user',
+      email: 'new-user@example.com',
+      password: 'secret',
+      confirm_password: 'secret'
+    })
+
+    expect(getAuthToken()).toBe('token-123')
+    expect(useAuthStore.getState().user).toEqual({
+      id: 1,
+      username: 'new-user',
+      is_admin: false
+    })
+    expect(useAuthStore.getState().isAuthLoading).toBe(false)
+    expect(useAuthStore.getState().authError).toBeNull()
+  })
+
+  it('sets an error message and rethrows on failure, without storing a token', async () => {
+    mockedRegister.mockRejectedValue(new Error('User already exists'))
+
+    await expect(
+      useAuthStore.getState().register({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'secret',
+        confirm_password: 'secret'
+      })
+    ).rejects.toThrow('User already exists')
+
+    expect(getAuthToken()).toBeNull()
+    expect(useAuthStore.getState().isAuthLoading).toBe(false)
+    expect(useAuthStore.getState().authError).toBe('User already exists')
   })
 })
 
@@ -81,11 +139,22 @@ describe('useAuthStore.fetchMe', () => {
     expect(useAuthStore.getState().authError).toBeNull()
   })
 
-  it('clears the user without calling the API when there is no token', async () => {
+  it('refreshes the access token before loading the user when there is no token', async () => {
+    mockedRefresh.mockResolvedValue({
+      access_token: 'fresh-token',
+      token_type: 'bearer'
+    })
+    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
+
     await useAuthStore.getState().fetchMe()
 
-    expect(mockedMe).not.toHaveBeenCalled()
-    expect(useAuthStore.getState().user).toBeNull()
+    expect(getAuthToken()).toBe('fresh-token')
+    expect(mockedMe).toHaveBeenCalledTimes(1)
+    expect(useAuthStore.getState().user).toEqual({
+      id: 1,
+      username: 'admin',
+      is_admin: true
+    })
   })
 
   it('clears the token and sets an error when the server rejects it', async () => {
@@ -112,9 +181,12 @@ describe('useAuthStore.bootstrap', () => {
     expect(useAuthStore.getState().bootstraped).toBe(true)
   })
 
-  it('does not call the API and marks itself as bootstrapped when there is no token', async () => {
+  it('tries refresh and marks itself as bootstrapped when there is no token', async () => {
+    mockedRefresh.mockRejectedValue(new Error('Unauthorized'))
+
     await useAuthStore.getState().bootstrap()
 
+    expect(mockedRefresh).toHaveBeenCalledTimes(1)
     expect(mockedMe).not.toHaveBeenCalled()
     expect(useAuthStore.getState().bootstraped).toBe(true)
     expect(useAuthStore.getState().user).toBeNull()
@@ -122,14 +194,16 @@ describe('useAuthStore.bootstrap', () => {
 })
 
 describe('useAuthStore.logout', () => {
-  it('clears the token and the user', () => {
+  it('revokes the session and clears the token and the user', async () => {
     setAuthToken('token-123')
+    mockedLogout.mockResolvedValue()
     useAuthStore.setState({
       user: { id: 1, username: 'admin', is_admin: true }
     })
 
-    useAuthStore.getState().logout()
+    await useAuthStore.getState().logout()
 
+    expect(mockedLogout).toHaveBeenCalledTimes(1)
     expect(getAuthToken()).toBeNull()
     expect(useAuthStore.getState().user).toBeNull()
   })

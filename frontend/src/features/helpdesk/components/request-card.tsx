@@ -33,7 +33,7 @@ export function RequestCard({
   const isDone = request.status === 'done'
 
   return (
-    <article className="relative flex min-h-36 flex-col justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/25">
+    <article className="relative flex min-h-36 flex-col justify-between rounded-lg border border-border bg-card p-4 transition-[border-color,box-shadow,transform] duration-200 ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-sm motion-reduce:transform-none motion-reduce:transition-none">
       {isAdmin ? (
         <Button
           aria-label="Удалить заявку"

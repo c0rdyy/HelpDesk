@@ -1,5 +1,8 @@
-import axios, { AxiosError } from 'axios'
-import { getAuthToken } from './auth-token'
+import axios from 'axios'
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
+
+import { getAuthToken, setAuthToken } from './auth-token'
+import type { AuthResponse } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
 
@@ -9,6 +12,15 @@ if (!baseURL) {
 
 export const http = axios.create({
   baseURL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+const refreshHttp = axios.create({
+  baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -26,28 +38,72 @@ http.interceptors.request.use((config) => {
 
 type UnauthorizedHandler = () => void
 
-let unauthorizedHandler: UnauthorizedHandler | null = null
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean
+}
 
+let unauthorizedHandler: UnauthorizedHandler | null = null
 
 export function setUnauthorizedHandler(handler: UnauthorizedHandler) {
   unauthorizedHandler = handler
 }
 
+function isAuthEndpoint(url?: string): boolean {
+  if (!url) {
+    return false
+  }
+
+  return [
+    '/auth/login',
+    '/auth/logout',
+    '/auth/refresh',
+    '/auth/register'
+  ].some((endpoint) => url.includes(endpoint))
+}
+
+async function refreshAccessToken(): Promise<string> {
+  const { data } = await refreshHttp.post<AuthResponse>('/auth/refresh')
+
+  setAuthToken(data.access_token)
+
+  return data.access_token
+}
+
 http.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const isLoginRequest =
-      axios.isAxiosError(error) && error.config?.url?.includes('/auth/login')
-
-    if (
-      axios.isAxiosError(error) &&
-      error.response?.status === 401 &&
-      !isLoginRequest
-    ) {
-      unauthorizedHandler?.()
+  async (error) => {
+    if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+      return Promise.reject(error)
     }
 
-    return Promise.reject(error)
+    const originalRequest = error.config as RetriableRequestConfig | undefined
+
+    if (
+      !originalRequest ||
+      originalRequest._retry ||
+      isAuthEndpoint(originalRequest.url)
+    ) {
+      if (!isAuthEndpoint(originalRequest?.url)) {
+        unauthorizedHandler?.()
+      }
+
+      return Promise.reject(error)
+    }
+
+    originalRequest._retry = true
+
+    try {
+      const accessToken = await refreshAccessToken()
+
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`
+
+      return http(originalRequest)
+    } catch (refreshError) {
+      setAuthToken(null)
+      unauthorizedHandler?.()
+
+      return Promise.reject(refreshError)
+    }
   }
 )
 
