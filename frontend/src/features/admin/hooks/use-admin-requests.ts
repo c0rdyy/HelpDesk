@@ -1,57 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Dispatch, SetStateAction } from 'react'
 
+import { sortToParams } from '@/features/helpdesk/lib/sort'
+import type {
+  FilterPriority,
+  FilterStatus,
+  RequestListState,
+  SortValue
+} from '@/features/helpdesk/types'
 import { getApiErrorMessage } from '@/lib/utils'
 import { requestsApi } from '@/shared/api/requests-api'
 import type {
   HelpDeskRequest,
   RequestCreatePayload,
   RequestListParams,
-  RequestStatus
+  RequestStatus,
+  RequestUpdatePayload
 } from '@/shared/api/types'
 import { useToastStore } from '@/stores/toast-store'
 
-import { PAGE_SIZE } from '../constants'
-import { sortToParams } from '../lib/sort'
-import type {
-  FilterPriority,
-  FilterStatus,
-  RequestListState,
-  SortValue
-} from '../types'
+import { ADMIN_REQUESTS_PAGE_SIZE } from '../constants'
 
-interface UseHelpDeskRequestsResult {
-  searchDraft: string
-  setSearchDraft: Dispatch<SetStateAction<string>>
-  status: FilterStatus
-  setStatus: (value: FilterStatus) => void
-  priority: FilterPriority
-  setPriority: (value: FilterPriority) => void
-  sort: SortValue
-  setSort: (value: SortValue) => void
-  page: number
-  setPage: Dispatch<SetStateAction<number>>
-  pages: number
-  requestState: RequestListState
-  isLoading: boolean
-  pendingRequestId: number | null
-  resetFilters: () => void
-  reload: () => void
-  createRequest: (payload: RequestCreatePayload) => Promise<void>
-  updateStatus: (
-    request: HelpDeskRequest,
-    nextStatus: RequestStatus
-  ) => Promise<void>
-  deleteRequest: (request: HelpDeskRequest) => Promise<void>
-}
-
-interface UseHelpDeskRequestsOptions {
-  enabled?: boolean
-}
-
-export function useHelpDeskRequests({
-  enabled = true
-}: UseHelpDeskRequestsOptions = {}): UseHelpDeskRequestsResult {
+export function useAdminRequests() {
   const [searchDraft, setSearchDraft] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatusState] = useState<FilterStatus>('all')
@@ -83,16 +52,12 @@ export function useHelpDeskRequests({
       priority: priority === 'all' ? undefined : priority,
       search: search || undefined,
       page,
-      page_size: PAGE_SIZE,
+      page_size: ADMIN_REQUESTS_PAGE_SIZE,
       ...sortParams
     }
   }, [page, priority, search, sort, status])
 
   useEffect(() => {
-    if (!enabled) {
-      return undefined
-    }
-
     let ignore = false
 
     async function loadRequests() {
@@ -106,15 +71,10 @@ export function useHelpDeskRequests({
         }
       } catch (error) {
         if (!ignore) {
-          const message = getApiErrorMessage(
-            error,
-            'Не удалось загрузить заявки'
-          )
-
           setRequestState((current) => ({
             status: 'error',
             data: current.data,
-            error: message
+            error: getApiErrorMessage(error, 'Не удалось загрузить заявки')
           }))
         }
       }
@@ -125,14 +85,11 @@ export function useHelpDeskRequests({
     return () => {
       ignore = true
     }
-  }, [enabled, query, reloadKey])
+  }, [query, reloadKey])
 
-  const visibleRequestState: RequestListState = enabled
-    ? requestState
-    : { status: 'loading', data: null }
-  const requests = visibleRequestState.data
+  const requests = requestState.data
   const pages = requests?.pages ?? 1
-  const isLoading = visibleRequestState.status === 'loading'
+  const isLoading = requestState.status === 'loading'
 
   const reload = useCallback(() => {
     setReloadKey((value) => value + 1)
@@ -162,6 +119,22 @@ export function useHelpDeskRequests({
     setPage(1)
   }, [])
 
+  const replaceRequest = useCallback((updated: HelpDeskRequest) => {
+    setRequestState((current) =>
+      current.data
+        ? {
+            status: 'success',
+            data: {
+              ...current.data,
+              items: current.data.items.map((item) =>
+                item.id === updated.id ? updated : item
+              )
+            }
+          }
+        : current
+    )
+  }, [])
+
   const createRequest = useCallback(
     async (payload: RequestCreatePayload) => {
       await requestsApi.create(payload)
@@ -184,24 +157,10 @@ export function useHelpDeskRequests({
 
       try {
         const updated = await requestsApi.updateStatus(request.id, nextStatus)
-
-        setRequestState((current) =>
-          current.data
-            ? {
-                status: 'success',
-                data: {
-                  ...current.data,
-                  items: current.data.items.map((item) =>
-                    item.id === updated.id ? updated : item
-                  )
-                }
-              }
-            : current
-        )
+        replaceRequest(updated)
         addToast('Статус обновлен')
       } catch (error) {
         const message = getApiErrorMessage(error, 'Не удалось изменить статус')
-
         setRequestState((current) => ({
           status: 'error',
           data: current.data,
@@ -211,7 +170,22 @@ export function useHelpDeskRequests({
         setPendingRequestId(null)
       }
     },
-    [addToast]
+    [addToast, replaceRequest]
+  )
+
+  const updateRequest = useCallback(
+    async (request: HelpDeskRequest, payload: RequestUpdatePayload) => {
+      setPendingRequestId(request.id)
+
+      try {
+        const updated = await requestsApi.update(request.id, payload)
+        replaceRequest(updated)
+        addToast('Заявка обновлена')
+      } finally {
+        setPendingRequestId(null)
+      }
+    },
+    [addToast, replaceRequest]
   )
 
   const deleteRequest = useCallback(
@@ -254,13 +228,14 @@ export function useHelpDeskRequests({
     page,
     setPage,
     pages,
-    requestState: visibleRequestState,
+    requestState,
     isLoading,
     pendingRequestId,
     resetFilters,
     reload,
     createRequest,
     updateStatus,
+    updateRequest,
     deleteRequest
   }
 }

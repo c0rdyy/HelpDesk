@@ -2,7 +2,7 @@ import { PAGE_SIZE } from '../constants'
 
 export function RequestsSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: PAGE_SIZE }, (_, index) => (
         <div
           className="min-h-36 animate-pulse rounded-lg border border-border bg-card p-4"

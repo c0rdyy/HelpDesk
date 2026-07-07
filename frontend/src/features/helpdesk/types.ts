@@ -31,6 +31,13 @@ export type RegisterFormState = {
   confirm_password: string
 }
 
+export type ProfileFormState = {
+  username: string
+  full_name: string
+  email: string
+  phone: string
+}
+
 export type RequestListState =
   | { status: 'loading'; data: RequestListResponse | null }
   | { status: 'success'; data: RequestListResponse }

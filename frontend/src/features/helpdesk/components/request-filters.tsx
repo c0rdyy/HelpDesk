@@ -36,7 +36,7 @@ export function RequestFilters({
   status
 }: RequestFiltersProps) {
   return (
-    <div className="grid gap-3 border-b bg-muted/25 px-4 py-3 xl:grid-cols-[1fr_auto] xl:items-center">
+    <div className="grid gap-3 rounded-lg border border-border bg-muted/25 p-3 xl:grid-cols-[1fr_auto] xl:items-center">
       <div className="grid gap-2 sm:grid-cols-3">
         <Select
           onValueChange={(value) => onStatusChange(value as FilterStatus)}

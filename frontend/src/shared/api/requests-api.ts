@@ -4,6 +4,7 @@ import type {
   RequestListParams,
   RequestListResponse,
   RequestStatus,
+  RequestUpdatePayload,
   HelpDeskRequest
 } from './types'
 
@@ -37,6 +38,18 @@ export const requestsApi = {
     const { data } = await http.patch<HelpDeskRequest>(
       `/requests/${id}/status`,
       { status }
+    )
+
+    return data
+  },
+
+  async update(
+    id: number,
+    payload: RequestUpdatePayload
+  ): Promise<HelpDeskRequest> {
+    const { data } = await http.patch<HelpDeskRequest>(
+      `/requests/${id}`,
+      payload
     )
 
     return data

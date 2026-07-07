@@ -21,9 +21,15 @@ function createAxiosError(status: number, data: unknown): AxiosError {
 
 describe('getApiErrorMessage', () => {
   it('returns "detail" from a FastAPI-style error response', () => {
+    const error = createAxiosError(404, { detail: 'Some unmapped detail' })
+
+    expect(getApiErrorMessage(error)).toBe('Some unmapped detail')
+  })
+
+  it('translates known request errors from the API', () => {
     const error = createAxiosError(404, { detail: 'Request not found' })
 
-    expect(getApiErrorMessage(error)).toBe('Request not found')
+    expect(getApiErrorMessage(error)).toBe('Заявка не найдена')
   })
 
   it('translates common auth errors from the API', () => {

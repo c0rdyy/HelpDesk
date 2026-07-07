@@ -2,7 +2,12 @@ import { getApiErrorMessage } from '@/lib/utils'
 import { authApi } from '@/shared/api/auth-api'
 import { getAuthToken, setAuthToken } from '@/shared/api/auth-token'
 import { setUnauthorizedHandler } from '@/shared/api/http'
-import type { LoginRequest, RegisterRequest, UserInfo } from '@/shared/api/types'
+import type {
+  LoginRequest,
+  ProfileUpdatePayload,
+  RegisterRequest,
+  UserInfo
+} from '@/shared/api/types'
 import { create } from 'zustand'
 
 type AuthState = {
@@ -13,19 +18,19 @@ type AuthState = {
   bootstrap: () => Promise<void>
   login: (payload: LoginRequest) => Promise<void>
   register: (payload: RegisterRequest) => Promise<void>
+  updateProfile: (payload: ProfileUpdatePayload) => Promise<void>
   logout: () => Promise<void>
   clearAuthError: () => void
   fetchMe: () => Promise<void>
 }
 
-function profileToUser(profile: {
-  id: number
-  username: string
-  is_admin: boolean
-}): UserInfo {
+function profileToUser(profile: UserInfo): UserInfo {
   return {
     id: profile.id,
     username: profile.username,
+    email: profile.email,
+    full_name: profile.full_name ?? null,
+    phone: profile.phone ?? null,
     is_admin: profile.is_admin
   }
 }
@@ -117,6 +122,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthLoading: false,
         authError: getApiErrorMessage(error, 'Не удалось зарегистрироваться')
+      })
+
+      throw error
+    }
+  },
+  updateProfile: async (payload) => {
+    set({ isAuthLoading: true, authError: null })
+
+    try {
+      const profile = await authApi.updateProfile(payload)
+
+      set({
+        user: profileToUser(profile),
+        isAuthLoading: false,
+        authError: null
+      })
+    } catch (error) {
+      set({
+        isAuthLoading: false,
+        authError: getApiErrorMessage(error, 'Не удалось обновить профиль')
       })
 
       throw error

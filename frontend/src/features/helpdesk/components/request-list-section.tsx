@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Loader2, Plus } from 'lucide-react'
 
 import {
@@ -15,11 +16,8 @@ import { RequestCard } from './request-card'
 import { RequestsSkeleton } from './requests-skeleton'
 
 interface RequestListSectionProps {
-  isAdmin: boolean
+  filters?: ReactNode
   isLoading: boolean
-  feedbackMessage: string | null
-  onDelete: (request: HelpDeskRequest) => void
-  onFeedbackDismiss: () => void
   onOpenCreate: () => void
   onPageChange: (page: number) => void
   onReload: () => void
@@ -31,11 +29,8 @@ interface RequestListSectionProps {
 }
 
 export function RequestListSection({
-  feedbackMessage,
-  isAdmin,
+  filters,
   isLoading,
-  onDelete,
-  onFeedbackDismiss,
   onOpenCreate,
   onPageChange,
   onReload,
@@ -52,8 +47,8 @@ export function RequestListSection({
   return (
     <div className="px-4 py-4">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold">Заявки</h2>
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Заявки</h2>
           <Button
             aria-label="Добавить заявку"
             onClick={onOpenCreate}
@@ -73,6 +68,8 @@ export function RequestListSection({
           </div>
         ) : null}
       </div>
+
+      {filters ? <div className="mb-4">{filters}</div> : null}
 
       {apiError ? (
         <Alert aria-live="polite" className="mb-4" variant="destructive">
@@ -94,34 +91,14 @@ export function RequestListSection({
         </Alert>
       ) : null}
 
-      {feedbackMessage ? (
-        <Alert aria-live="polite" className="mb-4">
-          <CheckCircle2 className="size-4 text-emerald-700" />
-          <AlertTitle>Выполнено</AlertTitle>
-          <AlertDescription>{feedbackMessage}</AlertDescription>
-          <AlertAction>
-            <Button
-              onClick={onFeedbackDismiss}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Скрыть
-            </Button>
-          </AlertAction>
-        </Alert>
-      ) : null}
-
       {isLoading && !requests ? (
         <RequestsSkeleton />
       ) : requests && requests.items.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {requests.items.map((request) => (
             <RequestCard
-              isAdmin={isAdmin}
               isPending={pendingRequestId === request.id}
               key={request.id}
-              onDelete={onDelete}
               onStatusChange={onStatusChange}
               request={request}
             />

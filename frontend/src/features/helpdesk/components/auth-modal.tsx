@@ -11,6 +11,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import type { UserInfo } from '@/shared/api/types'
 
 import type { LoginFormState, RegisterFormState } from '../types'
@@ -92,23 +93,37 @@ export function AuthModal({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+          <div
+            aria-label="Режим авторизации"
+            className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+            role="tablist"
+          >
             <Button
-              aria-pressed={isLoginMode}
+              aria-selected={isLoginMode}
+              className={cn(
+                !isLoginMode && 'text-muted-foreground hover:text-foreground'
+              )}
               onClick={() => onModeChange('login')}
+              role="tab"
               size="sm"
               type="button"
-              variant={isLoginMode ? 'secondary' : 'ghost'}
+              variant={isLoginMode ? 'default' : 'ghost'}
             >
+              <LogIn data-icon="inline-start" />
               Вход
             </Button>
             <Button
-              aria-pressed={!isLoginMode}
+              aria-selected={!isLoginMode}
+              className={cn(
+                isLoginMode && 'text-muted-foreground hover:text-foreground'
+              )}
               onClick={() => onModeChange('register')}
+              role="tab"
               size="sm"
               type="button"
-              variant={!isLoginMode ? 'secondary' : 'ghost'}
+              variant={!isLoginMode ? 'default' : 'ghost'}
             >
+              <UserPlus data-icon="inline-start" />
               Регистрация
             </Button>
           </div>
@@ -230,9 +245,7 @@ function LoginForm({
       >
         {isAuthLoading ? (
           <Loader2 className="animate-spin" data-icon="inline-start" />
-        ) : (
-          <LogIn data-icon="inline-start" />
-        )}
+        ) : null}
         Войти
       </Button>
     </form>
@@ -367,9 +380,7 @@ function RegisterForm({
       >
         {isAuthLoading ? (
           <Loader2 className="animate-spin" data-icon="inline-start" />
-        ) : (
-          <UserPlus data-icon="inline-start" />
-        )}
+        ) : null}
         Зарегистрироваться
       </Button>
     </form>

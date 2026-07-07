@@ -6,7 +6,8 @@ vi.mock('@/shared/api/auth-api', () => ({
     login: vi.fn(),
     me: vi.fn(),
     register: vi.fn(),
-    refresh: vi.fn()
+    refresh: vi.fn(),
+    updateProfile: vi.fn()
   }
 }))
 
@@ -26,6 +27,7 @@ vi.mock('@/shared/api/auth-token', () => {
 
 import { authApi } from '@/shared/api/auth-api'
 import { getAuthToken, setAuthToken } from '@/shared/api/auth-token'
+import type { UserInfo } from '@/shared/api/types'
 
 import { useAuthStore } from './auth-store'
 
@@ -34,7 +36,20 @@ const mockedMe = vi.mocked(authApi.me)
 const mockedRegister = vi.mocked(authApi.register)
 const mockedRefresh = vi.mocked(authApi.refresh)
 const mockedLogout = vi.mocked(authApi.logout)
+const mockedUpdateProfile = vi.mocked(authApi.updateProfile)
 const initialState = useAuthStore.getState()
+
+function userFixture(overrides: Partial<UserInfo> = {}): UserInfo {
+  return {
+    id: 1,
+    username: 'admin',
+    email: 'admin@example.com',
+    full_name: null,
+    phone: null,
+    is_admin: true,
+    ...overrides
+  }
+}
 
 beforeEach(() => {
   useAuthStore.setState(initialState, true)
@@ -44,6 +59,7 @@ beforeEach(() => {
   mockedRegister.mockReset()
   mockedRefresh.mockReset()
   mockedLogout.mockReset()
+  mockedUpdateProfile.mockReset()
 })
 
 describe('useAuthStore.login', () => {
@@ -52,18 +68,14 @@ describe('useAuthStore.login', () => {
       access_token: 'token-123',
       token_type: 'bearer'
     })
-    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
+    mockedMe.mockResolvedValue(userFixture())
 
     await useAuthStore
       .getState()
       .login({ username: 'admin', password: 'admin', remember_me: true })
 
     expect(getAuthToken()).toBe('token-123')
-    expect(useAuthStore.getState().user).toEqual({
-      id: 1,
-      username: 'admin',
-      is_admin: true
-    })
+    expect(useAuthStore.getState().user).toEqual(userFixture())
     expect(useAuthStore.getState().isAuthLoading).toBe(false)
     expect(useAuthStore.getState().authError).toBeNull()
   })
@@ -87,7 +99,13 @@ describe('useAuthStore.register', () => {
       access_token: 'token-123',
       token_type: 'bearer'
     })
-    mockedMe.mockResolvedValue({ id: 1, username: 'new-user', is_admin: false })
+    mockedMe.mockResolvedValue(
+      userFixture({
+        username: 'new-user',
+        email: 'new-user@example.com',
+        is_admin: false
+      })
+    )
 
     await useAuthStore.getState().register({
       username: 'new-user',
@@ -97,11 +115,13 @@ describe('useAuthStore.register', () => {
     })
 
     expect(getAuthToken()).toBe('token-123')
-    expect(useAuthStore.getState().user).toEqual({
-      id: 1,
-      username: 'new-user',
-      is_admin: false
-    })
+    expect(useAuthStore.getState().user).toEqual(
+      userFixture({
+        username: 'new-user',
+        email: 'new-user@example.com',
+        is_admin: false
+      })
+    )
     expect(useAuthStore.getState().isAuthLoading).toBe(false)
     expect(useAuthStore.getState().authError).toBeNull()
   })
@@ -127,15 +147,11 @@ describe('useAuthStore.register', () => {
 describe('useAuthStore.fetchMe', () => {
   it('loads the current user when a token is present', async () => {
     setAuthToken('token-123')
-    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
+    mockedMe.mockResolvedValue(userFixture())
 
     await useAuthStore.getState().fetchMe()
 
-    expect(useAuthStore.getState().user).toEqual({
-      id: 1,
-      username: 'admin',
-      is_admin: true
-    })
+    expect(useAuthStore.getState().user).toEqual(userFixture())
     expect(useAuthStore.getState().authError).toBeNull()
   })
 
@@ -144,17 +160,13 @@ describe('useAuthStore.fetchMe', () => {
       access_token: 'fresh-token',
       token_type: 'bearer'
     })
-    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
+    mockedMe.mockResolvedValue(userFixture())
 
     await useAuthStore.getState().fetchMe()
 
     expect(getAuthToken()).toBe('fresh-token')
     expect(mockedMe).toHaveBeenCalledTimes(1)
-    expect(useAuthStore.getState().user).toEqual({
-      id: 1,
-      username: 'admin',
-      is_admin: true
-    })
+    expect(useAuthStore.getState().user).toEqual(userFixture())
   })
 
   it('clears the token and sets an error when the server rejects it', async () => {
@@ -172,7 +184,7 @@ describe('useAuthStore.fetchMe', () => {
 describe('useAuthStore.bootstrap', () => {
   it('calls the API only once, even if invoked multiple times', async () => {
     setAuthToken('token-123')
-    mockedMe.mockResolvedValue({ id: 1, username: 'admin', is_admin: true })
+    mockedMe.mockResolvedValue(userFixture())
 
     await useAuthStore.getState().bootstrap()
     await useAuthStore.getState().bootstrap()
@@ -198,7 +210,7 @@ describe('useAuthStore.logout', () => {
     setAuthToken('token-123')
     mockedLogout.mockResolvedValue()
     useAuthStore.setState({
-      user: { id: 1, username: 'admin', is_admin: true }
+      user: userFixture()
     })
 
     await useAuthStore.getState().logout()

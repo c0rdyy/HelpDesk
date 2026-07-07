@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
+import { AppHeader } from '@/components/app-header'
 import { AuthModal } from '@/features/helpdesk/components/auth-modal'
 import { CreateRequestModal } from '@/features/helpdesk/components/create-request-modal'
-import { HelpDeskHeader } from '@/features/helpdesk/components/helpdesk-header'
+import { ProfileModal } from '@/features/helpdesk/components/profile-modal'
 import { RequestFilters } from '@/features/helpdesk/components/request-filters'
 import { RequestListSection } from '@/features/helpdesk/components/request-list-section'
 import { useHelpDeskRequests } from '@/features/helpdesk/hooks/use-helpdesk-requests'
+import { useProfileEditor } from '@/features/helpdesk/hooks/use-profile-editor'
 import type {
   LoginFormState,
   RegisterFormState,
   RequestFormState
 } from '@/features/helpdesk/types'
 import { getApiErrorMessage } from '@/lib/utils'
-import type { HelpDeskRequest } from '@/shared/api/types'
 import { useAuthStore } from '@/stores/auth-store'
 
 const initialRequestForm: RequestFormState = {
@@ -143,6 +144,7 @@ export function HelpDeskPage() {
   const authModalOpen = isAuthOpen || !user
   const canCloseAuth = Boolean(user)
   const requests = useHelpDeskRequests({ enabled: Boolean(user) })
+  const profile = useProfileEditor(user)
 
   useEffect(() => {
     void bootstrap()
@@ -179,16 +181,15 @@ export function HelpDeskPage() {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
 
-    if (isCreateOpen || authModalOpen) {
+    if (isCreateOpen || authModalOpen || profile.isOpen) {
       document.body.style.overflow = 'hidden'
     }
 
     return () => {
       document.body.style.overflow = previousOverflow
     }
-  }, [authModalOpen, isCreateOpen])
+  }, [authModalOpen, isCreateOpen, profile.isOpen])
 
-  const isAdmin = Boolean(user?.is_admin)
   const canCreate =
     requestForm.title.trim().length >= 3 &&
     requestForm.title.trim().length <= 120
@@ -270,6 +271,7 @@ export function HelpDeskPage() {
   }
 
   async function handleLogout() {
+    profile.closeProfile()
     await logout()
     setAuthOpen(true)
   }
@@ -280,45 +282,34 @@ export function HelpDeskPage() {
     }
   }
 
-  async function handleDelete(request: HelpDeskRequest) {
-    const confirmed = window.confirm(`Удалить заявку "${request.title}"?`)
-
-    if (!confirmed) {
-      return
-    }
-
-    await requests.deleteRequest(request)
-  }
-
   return (
-    <div className="min-h-svh bg-[oklch(0.985_0.002_260)] px-4 py-5 text-foreground sm:py-8">
-      <main className="mx-auto w-full max-w-4xl">
+    <div className="min-h-svh bg-[oklch(0.985_0.002_260)] text-foreground">
+      <AppHeader
+        onLogout={() => void handleLogout()}
+        onOpenAuth={() => setAuthOpen(true)}
+        onOpenProfile={profile.openProfile}
+        onSearchChange={requests.setSearchDraft}
+        searchValue={requests.searchDraft}
+        user={user}
+      />
+
+      <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:py-8">
         <section className="overflow-hidden rounded-xl border border-border bg-card">
-          <HelpDeskHeader
-            onOpenAuth={() => setAuthOpen(true)}
-            onSearchChange={requests.setSearchDraft}
-            searchValue={requests.searchDraft}
-            user={user}
-          />
-
-          <RequestFilters
-            isLoading={requests.isLoading}
-            onPriorityChange={requests.setPriority}
-            onReload={requests.reload}
-            onReset={requests.resetFilters}
-            onSortChange={requests.setSort}
-            onStatusChange={requests.setStatus}
-            priority={requests.priority}
-            sort={requests.sort}
-            status={requests.status}
-          />
-
           <RequestListSection
-            feedbackMessage={requests.feedbackMessage}
-            isAdmin={isAdmin}
+            filters={
+              <RequestFilters
+                isLoading={requests.isLoading}
+                onPriorityChange={requests.setPriority}
+                onReload={requests.reload}
+                onReset={requests.resetFilters}
+                onSortChange={requests.setSort}
+                onStatusChange={requests.setStatus}
+                priority={requests.priority}
+                sort={requests.sort}
+                status={requests.status}
+              />
+            }
             isLoading={requests.isLoading}
-            onDelete={handleDelete}
-            onFeedbackDismiss={requests.clearFeedback}
             onOpenCreate={() => setCreateOpen(true)}
             onPageChange={requests.setPage}
             onReload={requests.reload}
@@ -340,6 +331,16 @@ export function HelpDeskPage() {
         onFormChange={setRequestForm}
         onSubmit={handleCreateSubmit}
         open={isCreateOpen}
+      />
+
+      <ProfileModal
+        error={profile.error}
+        form={profile.form}
+        isSubmitting={profile.isSubmitting}
+        onClose={profile.closeProfile}
+        onFormChange={profile.setForm}
+        onSubmit={profile.handleSubmit}
+        open={profile.isOpen}
       />
 
       <AuthModal

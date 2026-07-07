@@ -66,22 +66,33 @@ function normalizePydanticMessage(message: string): string {
   return message
 }
 
+const API_DETAIL_MESSAGES: Record<string, string> = {
+  'Invalid username or password': 'Неверный логин или пароль',
+  'User with this username already exists':
+    'Пользователь с таким логином уже существует',
+  'User with this email already exists':
+    'Пользователь с таким email уже существует',
+  'Could not validate credentials':
+    'Не удалось подтвердить учётные данные, войдите снова',
+  'Only admin can perform this action':
+    'Это действие может выполнить только администратор',
+  'Only admin can delete requests': 'Удалять заявки может только администратор',
+  'You cannot modify your own account':
+    'Нельзя изменить собственную учётную запись',
+  'At least one active admin must remain':
+    'В системе должен остаться хотя бы один активный администратор',
+  'User not found': 'Пользователь не найден',
+  'Request not found': 'Заявка не найдена',
+  'Done request cannot be edited': 'Выполненную заявку нельзя редактировать',
+  'Done request cannot be deleted': 'Выполненную заявку нельзя удалить',
+  'Refresh token missing': 'Сессия истекла, войдите снова',
+  'Invalid refresh token': 'Сессия истекла, войдите снова'
+}
+
 function normalizeApiDetailMessage(message: string): string {
   const normalizedMessage = normalizePydanticMessage(message)
 
-  if (normalizedMessage === 'Invalid username or password') {
-    return 'Неверный логин или пароль'
-  }
-
-  if (normalizedMessage === 'User with this username already exists') {
-    return 'Пользователь с таким логином уже существует'
-  }
-
-  if (normalizedMessage === 'User with this email already exists') {
-    return 'Пользователь с таким email уже существует'
-  }
-
-  return normalizedMessage
+  return API_DETAIL_MESSAGES[normalizedMessage] ?? normalizedMessage
 }
 
 function getValidationIssueMessage(issue: ApiValidationIssue): string {

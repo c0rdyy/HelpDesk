@@ -2,6 +2,7 @@ import { http } from './http'
 import type {
   AuthResponse,
   LoginRequest,
+  ProfileUpdatePayload,
   RegisterRequest,
   UserInfo
 } from './types'
@@ -27,6 +28,11 @@ export const authApi = {
   },
   async me(): Promise<UserInfo> {
     const { data } = await http.get<UserInfo>('/users/me')
+
+    return data
+  },
+  async updateProfile(payload: ProfileUpdatePayload): Promise<UserInfo> {
+    const { data } = await http.patch<UserInfo>('/users/me', payload)
 
     return data
   }
