@@ -9,14 +9,19 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.enums import UserRole
 from app.models.user import User
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import SUserLogin, SUserRegister, SUserSessionCreate
-from app.services.user_exceptions import (
+from app.schemas.user import SUserAdminInfo, SUserFilter, SUserList
+from app.services.user.user_exceptions import (
+    CannotModifyOwnAccountError,
     EmailAlreadyExistsError,
     InvalidRefreshTokenError,
+    LastAdminCannotBeModifiedError,
     UsernameAlreadyExistsError,
+    UserNotFoundError,
 )
 
 
@@ -46,6 +51,8 @@ class UserService:
 
         if not verify_password(data.password, user.hashed_password):
             return None
+
+        user = await self.repository.update_last_login_at(user)
 
         return user
 
@@ -111,3 +118,46 @@ class UserService:
 
         if session is not None:
             await self.session_repository.revoke(session)
+
+    async def get_list(self, filters: SUserFilter) -> SUserList:
+        users = await self.repository.get_list(filters)
+        total = await self.repository.count()
+
+        return SUserList(
+            items=[SUserAdminInfo.model_validate(u) for u in users],
+            total=total,
+            page=filters.page,
+            page_size=filters.page_size,
+        )
+
+    async def update_role(self, user_id: int, role: UserRole, current_user: User) -> User:
+        if user_id == current_user.id:
+            raise CannotModifyOwnAccountError
+
+        user = await self.repository.get_by_id(user_id)
+
+        if user is None:
+            raise UserNotFoundError(user_id)
+
+        if (user.role == UserRole.admin and role != UserRole.admin and user.is_active) and (
+            await self.repository.count_other_active_admins(user.id) == 0
+        ):
+            raise LastAdminCannotBeModifiedError
+
+        return await self.repository.update_role(user, role)
+
+    async def update_block(self, user_id: int, is_active: bool, current_user: User) -> User:
+        if user_id == current_user.id:
+            raise CannotModifyOwnAccountError
+
+        user = await self.repository.get_by_id(user_id)
+
+        if user is None:
+            raise UserNotFoundError(user_id)
+
+        if (not is_active and user.role == UserRole.admin and user.is_active) and (
+            await self.repository.count_other_active_admins(user.id) == 0
+        ):
+            raise LastAdminCannotBeModifiedError
+
+        return await self.repository.update_block(user, is_active)

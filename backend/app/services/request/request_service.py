@@ -1,8 +1,14 @@
 from app.enums import RequestStatus
 from app.models.request import Request
 from app.repositories.request_repository import RequestRepository
-from app.schemas.request import SRequestCreate, SRequestFilter, SRequestInfo, SRequestList
-from app.services.request_exceptions import (
+from app.schemas.request import (
+    SRequestCreate,
+    SRequestFilter,
+    SRequestInfo,
+    SRequestList,
+    SRequestUpdate,
+)
+from app.services.request.request_exceptions import (
     DoneRequestCannotBeDeletedError,
     DoneRequestCannotBeEditedError,
     OnlyAdminCanDeleteRequestError,
@@ -14,8 +20,8 @@ class RequestService:
     def __init__(self, repository: RequestRepository) -> None:
         self.repository = repository
 
-    async def create(self, data: SRequestCreate) -> Request:
-        return await self.repository.create(data)
+    async def create(self, data: SRequestCreate, creator_id: int) -> Request:
+        return await self.repository.create(data, creator_id)
 
     async def get_list(self, filters: SRequestFilter) -> SRequestList:
         requests = await self.repository.get_list(filters)
@@ -27,6 +33,16 @@ class RequestService:
             page=filters.page,
             page_size=filters.page_size,
         )
+
+    async def update(self, request_id: int, data: SRequestUpdate) -> Request:
+        request = await self.repository.get_by_id(request_id)
+
+        if request is None:
+            raise RequestNotFoundError
+        if request.status == RequestStatus.done:
+            raise DoneRequestCannotBeEditedError
+
+        return await self.repository.update(request, data)
 
     async def update_status(self, request_id: int, status: RequestStatus) -> Request:
         request = await self.repository.get_by_id(request_id)

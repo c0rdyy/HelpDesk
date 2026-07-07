@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.dependencies.session_dep import get_session_repository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
-from app.services.user_service import UserService
+from app.services.user.user_service import UserService
 
 
 def get_user_repository(

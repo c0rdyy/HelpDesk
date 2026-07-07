@@ -2,16 +2,17 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.config import get_settings
 from app.dependencies.users_dep import get_user_service
 from app.schemas.auth import SToken, SUserLogin, SUserRegister
-from app.services.user_exceptions import (
+from app.services.user.user_exceptions import (
     EmailAlreadyExistsError,
     InvalidRefreshTokenError,
     UsernameAlreadyExistsError,
 )
-from app.services.user_service import UserService
+from app.services.user.user_service import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -149,3 +150,24 @@ async def logout(
         await service.logout(refresh_token)
 
     _clear_refresh_cookie(response)
+
+
+@router.post("/token", response_model=SToken, include_in_schema=False)
+async def token(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> SToken:
+    """OAuth2 form-based login, used only for Swagger"""
+    user = await service.authenticate(
+        SUserLogin(username=form_data.username, password=form_data.password)
+    )
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token, _, _ = await service.issue_tokens(
+        user=user, remember_me=False, user_agent=None, ip_address=None
+    )
+    return SToken(access_token=access_token)

@@ -19,6 +19,7 @@ from app.core.security import get_password_hash
 from app.enums import UserRole
 from app.models import Base
 from app.models.user import User
+from app.routers.admin_users import router as admin_users_router
 from app.routers.auth import router as auth_router
 from app.routers.requests import router as requests_router
 from app.routers.users import router as users_router
@@ -89,6 +90,7 @@ def client(test_db: DatabaseContext) -> Generator[TestClient]:
     app.include_router(requests_router, prefix=settings.API_PREFIX)
     app.include_router(auth_router, prefix=settings.API_PREFIX)
     app.include_router(users_router, prefix=settings.API_PREFIX)
+    app.include_router(admin_users_router, prefix=settings.API_PREFIX)
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as test_client:

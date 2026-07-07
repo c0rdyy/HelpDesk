@@ -2,10 +2,11 @@ from typing import Any
 
 from sqlalchemy import Select, asc, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.enums import RequestPriority, RequestStatus
 from app.models.request import Request
-from app.schemas.request import SRequestCreate, SRequestFilter
+from app.schemas.request import SRequestCreate, SRequestFilter, SRequestUpdate
 
 
 class RequestRepository:
@@ -13,12 +14,14 @@ class RequestRepository:
         self.db_session = db_session
 
     async def get_by_id(self, request_id: int) -> Request | None:
-        return await self.db_session.get(Request, request_id)
+        return await self.db_session.get(
+            Request, request_id, options=[selectinload(Request.creator)]
+        )
 
     async def get_list(self, filters: SRequestFilter) -> list[Request]:
         offset = (filters.page - 1) * filters.page_size
 
-        statement = select(Request)
+        statement = select(Request).options(selectinload(Request.creator))
         statement = self._apply_filters(statement, filters)
         statement = self._apply_sorting(statement, filters)
         statement = statement.offset(offset).limit(filters.page_size)
@@ -26,12 +29,17 @@ class RequestRepository:
         result = await self.db_session.execute(statement)
         return list(result.scalars().all())
 
-    async def create(self, data: SRequestCreate) -> Request:
-        request = Request(title=data.title, description=data.description, priority=data.priority)
+    async def create(self, data: SRequestCreate, creator_id: int) -> Request:
+        request = Request(
+            title=data.title,
+            description=data.description,
+            priority=data.priority,
+            creator_id=creator_id,
+        )
 
         self.db_session.add(request)
         await self.db_session.commit()
-        await self.db_session.refresh(request)
+        await self.db_session.refresh(request, attribute_names=["creator"])
 
         return request
 
@@ -64,6 +72,17 @@ class RequestRepository:
 
         return request
 
+    async def update(self, request: Request, data: SRequestUpdate) -> Request:
+        updates = data.model_dump(exclude_unset=True)
+
+        for field, value in updates.items():
+            setattr(request, field, value)
+
+        await self.db_session.commit()
+        await self.db_session.refresh(request)
+
+        return request
+
     async def delete(self, request: Request) -> None:
         await self.db_session.delete(request)
         await self.db_session.commit()
@@ -81,6 +100,9 @@ class RequestRepository:
 
         if filters.priority is not None:
             statement = statement.where(Request.priority == filters.priority)
+
+        if filters.creator_id is not None:
+            statement = statement.where(Request.creator_id == filters.creator_id)
 
         if filters.search is not None:
             search = f"%{filters.search}%"

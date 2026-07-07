@@ -20,17 +20,37 @@ class SRequestCreate(RequestBase):
     pass
 
 
+class SRequestCreatorInfo(BaseModel):
+    id: int = Field(description="Unique user ID of the request creator")
+    username: str = Field(description="Username of the request creator")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SRequestInfo(RequestBase):
     id: int = Field(description="Unique request ID")
     status: RequestStatus = Field(description="Status of the request")
     created_at: datetime = Field(description="Request creation time")
     updated_at: datetime = Field(description="Request modification time")
+    creator: SRequestCreatorInfo = Field(description="Creator of the request")
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class SRequestStatusUpdate(BaseModel):
     status: RequestStatus = Field(description="New status of the request")
+
+
+class SRequestUpdate(BaseModel):
+    title: str | None = Field(
+        default=None, min_length=3, max_length=120, description="New title of the request"
+    )
+    description: str | None = Field(
+        default=None, max_length=1000, description="New description of the request"
+    )
+    priority: RequestPriority | None = Field(
+        default=None, description="New priority of the request"
+    )
 
 
 class SRequestList(BaseModel):
@@ -43,7 +63,7 @@ class SRequestList(BaseModel):
 
     @computed_field
     def pages(self) -> int:
-        return (self.total + self.page_size - 1) // self.page_size
+        return max(1, (self.total + self.page_size - 1) // self.page_size)
 
 
 class SRequestFilter(BaseModel):
@@ -51,6 +71,7 @@ class SRequestFilter(BaseModel):
     priority: RequestPriority | None = Field(
         default=None, description="Filter requests by priotity"
     )
+    creator_id: int | None = Field(default=None, ge=1, description="Filter requests by creator ID")
     search: str | None = Field(
         default=None, min_length=1, max_length=200, description="The search bar"
     )

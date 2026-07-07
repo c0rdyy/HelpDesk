@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.routers.admin_users import router as admin_users_router
 from app.routers.auth import router as auth_router
 from app.routers.requests import router as request_router
 from app.routers.users import router as user_router
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(request_router, prefix=settings.API_PREFIX)
 app.include_router(auth_router, prefix=settings.API_PREFIX)
 app.include_router(user_router, prefix=settings.API_PREFIX)
+app.include_router(admin_users_router, prefix=settings.API_PREFIX)
 
 
 if __name__ == "__main__":

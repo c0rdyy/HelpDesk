@@ -44,3 +44,19 @@ class UserNotActiveError(Exception):
 
 class InvalidRefreshTokenError(Exception):
     pass
+
+
+class CannotModifyOwnAccountError(Exception):
+    """Exception raised when a user tries to modify their own account."""
+
+    def __init__(self) -> None:
+        self.message = "You cannot modify your own account."
+        super().__init__(self.message)
+
+
+class LastAdminCannotBeModifiedError(Exception):
+    """Exception raised when an action would leave the system without an active admin."""
+
+    def __init__(self) -> None:
+        self.message = "There must be at least one active admin left."
+        super().__init__(self.message)

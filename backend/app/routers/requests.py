@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.dependencies.auth_dep import get_current_admin_user
+from app.dependencies.auth_dep import get_current_admin_user, get_current_user
 from app.dependencies.requests_dep import get_request_service
 from app.models.user import User
 from app.schemas.request import (
@@ -11,14 +11,15 @@ from app.schemas.request import (
     SRequestInfo,
     SRequestList,
     SRequestStatusUpdate,
+    SRequestUpdate,
 )
-from app.services.request_exceptions import (
+from app.services.request.request_exceptions import (
     DoneRequestCannotBeDeletedError,
     DoneRequestCannotBeEditedError,
     OnlyAdminCanDeleteRequestError,
     RequestNotFoundError,
 )
-from app.services.request_service import RequestService
+from app.services.request.request_service import RequestService
 
 router = APIRouter(prefix="/requests", tags=["Requests"])
 
@@ -36,12 +37,35 @@ async def get_requests(
 
 @router.post("", response_model=SRequestInfo, status_code=status.HTTP_201_CREATED)
 async def create_request(
-    data: SRequestCreate, service: Annotated[RequestService, Depends(get_request_service)]
+    data: SRequestCreate,
+    service: Annotated[RequestService, Depends(get_request_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> Any:
     """
     Create the new request
     """
-    return await service.create(data)
+    return await service.create(data, creator_id=current_user.id)
+
+
+@router.patch("/{request_id}", response_model=SRequestInfo)
+async def update_request(
+    request_id: int,
+    data: SRequestUpdate,
+    service: Annotated[RequestService, Depends(get_request_service)],
+    _: Annotated[User, Depends(get_current_admin_user)],
+) -> Any:
+    """Fully update a request's title/description/priority (admin only)"""
+
+    try:
+        return await service.update(request_id, data)
+    except RequestNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Request not found"
+        ) from exc
+    except DoneRequestCannotBeEditedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Done request cannot be edited"
+        ) from exc
 
 
 @router.patch("/{request_id}/status", response_model=SRequestInfo)

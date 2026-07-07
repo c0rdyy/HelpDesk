@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.repositories.request_repository import RequestRepository
-from app.services.request_service import RequestService
+from app.services.request.request_service import RequestService
 
 
 def get_request_repository(
