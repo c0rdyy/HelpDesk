@@ -9,7 +9,6 @@ from app.schemas.request import (
     SRequestUpdate,
 )
 from app.services.request.request_exceptions import (
-    DoneRequestCannotBeDeletedError,
     DoneRequestCannotBeEditedError,
     OnlyAdminCanDeleteRequestError,
     RequestNotFoundError,
@@ -39,8 +38,6 @@ class RequestService:
 
         if request is None:
             raise RequestNotFoundError
-        if request.status == RequestStatus.done:
-            raise DoneRequestCannotBeEditedError
 
         return await self.repository.update(request, data)
 
@@ -63,8 +60,5 @@ class RequestService:
 
         if request is None:
             raise RequestNotFoundError
-
-        if request.status == RequestStatus.done:
-            raise DoneRequestCannotBeDeletedError
 
         await self.repository.delete(request)

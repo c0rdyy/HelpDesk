@@ -50,7 +50,6 @@ export function RequestCard({
             {onEdit ? (
               <Button
                 aria-label="Редактировать заявку"
-                disabled={isPending || isDone}
                 onClick={() => onEdit(request)}
                 size="icon-sm"
                 title={
@@ -67,7 +66,6 @@ export function RequestCard({
             {onDelete ? (
               <Button
                 aria-label="удалить заявку"
-                disabled={isPending || isDone}
                 onClick={() => onDelete(request)}
                 size="icon-sm"
                 title={
@@ -89,12 +87,12 @@ export function RequestCard({
       )}
 
       <div className="space-y-3">
-        <div className="space-y-1">
-          <h3 className="min-w-0 pr-28 text-base font-semibold text-pretty">
+        <div className="space-y-1 pr-28">
+          <h3 className="min-w-0 text-base font-semibold text-pretty">
             {request.title}
           </h3>
           {request.description ? (
-            <p className="line-clamp-2 text-sm leading-5 text-muted-foreground">
+            <p className="whitespace-pre-wrap break-words text-sm leading-5 text-muted-foreground">
               {request.description}
             </p>
           ) : (
